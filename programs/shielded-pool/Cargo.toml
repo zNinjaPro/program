@@ -1,0 +1,32 @@
+[package]
+name = "shielded-pool"
+version = "0.1.0"
+description = "Shielded pool for privacy-enhanced token transfers on Solana"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "shielded_pool"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+# Default keeps mock verifier behavior for local/dev; disable defaults for production builds.
+default = ["mock-verifier"]
+# Enable alt_bn128 syscalls (requires validator exposing sol_alt_bn128_* functions)
+altbn128_syscalls = []
+# Allow pairing fallbacks and zero-proof acceptance for local testing only.
+mock-verifier = []
+# Enforce canonical transfer public inputs (tx_anchor/pool_id/chain_id); off by default for legacy circuits.
+canonical-transfer-pis = []
+
+[dependencies]
+anchor-lang = "0.32.1"
+anchor-spl = "0.32.1"
+solana-program = "2.1"
+bytemuck = { version = "1.20", features = ["derive", "min_const_generics"] }
+hex-literal = "0.4"
+solana-poseidon = "3.1"

@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Anchor/Solana build artifacts
+target/
+.anchor/
+
+# Test validator state
+test-ledger/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Keypairs - NEVER COMMIT THESE
+*.pem
+*-keypair.json
+wallet.json
+
+# Local development keys that might be generated
+keys/
