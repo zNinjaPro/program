@@ -1,0 +1,22 @@
+=== Configuring Solana CLI ===
+Config File: /Users/mintmax/.config/solana/cli/config.yml
+RPC URL: http://localhost:8899 
+WebSocket URL: ws://localhost:8900/ (computed)
+Keypair Path: /Users/mintmax/Sites/SolNinja/wallet.json 
+Commitment: confirmed 
+=== Checking balance ===
+500000300 SOL
+=== Airdropping SOL ===
+Requesting airdrop of 100 SOL
+
+Signature: 4x2B9ivfhfwsrWLtw7QD2PHBBPKD3YmBmNdncu8Ku1keZqc1eTHkuTsccyvGkWTbLMoTmwUT7A2oJ8Q48cw95383
+
+500000400 SOL
+=== Building with mock-verifier feature ===
+error: unexpected argument '--features' found
+
+  tip: to pass '--features' as a value, use '-- --features'
+
+Usage: anchor build [OPTIONS] [-- <CARGO_ARGS>...]
+
+For more information, try '--help'.

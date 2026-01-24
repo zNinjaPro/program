@@ -19,6 +19,10 @@ use state::CircuitType;
 pub mod shielded_pool {
     use super::*;
 
+    // ========================================================================
+    // Legacy v1 Instructions
+    // ========================================================================
+
     pub fn initialize_pool(
         ctx: Context<InitializePool>,
         config_seed: Vec<u8>,
@@ -95,6 +99,136 @@ pub mod shielded_pool {
     ) -> Result<()> {
         instructions::withdraw_shielded::handler(ctx, proof_bytes, public_inputs, amount, n_in)
     }
+
+    // ========================================================================
+    // Epoch-Based v2 Instructions
+    // ========================================================================
+
+    /// Initialize a new epoch-based shielded pool
+    pub fn initialize_pool_v2(
+        ctx: Context<InitializePoolV2>,
+        epoch_duration_slots: u64,
+        expiry_slots: u64,
+        finalization_delay_slots: u64,
+    ) -> Result<()> {
+        instructions::initialize_pool_v2::handler(ctx, epoch_duration_slots, expiry_slots, finalization_delay_slots)
+    }
+
+    /// Initialize a leaf chunk for storing commitments
+    pub fn initialize_epoch_leaf_chunk(
+        ctx: Context<InitializeEpochLeafChunk>,
+        epoch: u64,
+        chunk_index: u32,
+    ) -> Result<()> {
+        instructions::deposit_v2::handler_init_leaf_chunk(ctx, epoch, chunk_index)
+    }
+
+    /// Roll over to a new epoch
+    pub fn rollover_epoch(ctx: Context<RolloverEpoch>) -> Result<()> {
+        instructions::rollover_epoch::handler(ctx)
+    }
+
+    /// Finalize a frozen epoch
+    pub fn finalize_epoch(ctx: Context<FinalizeEpoch>, epoch: u64) -> Result<()> {
+        instructions::finalize_epoch::handler(ctx, epoch)
+    }
+
+    /// Deposit tokens into the current epoch
+    pub fn deposit_v2(
+        ctx: Context<DepositV2>,
+        commitment: [u8; 32],
+        amount: u64,
+        encrypted_note: Vec<u8>,
+    ) -> Result<()> {
+        instructions::deposit_v2::handler(ctx, commitment, amount, encrypted_note)
+    }
+
+    /// Withdraw tokens using a ZK proof
+    pub fn withdraw_v2(
+        ctx: Context<WithdrawV2>,
+        proof_bytes: Vec<u8>,
+        public_inputs: WithdrawPublicInputs,
+    ) -> Result<()> {
+        instructions::withdraw_v2::handler(ctx, proof_bytes, public_inputs)
+    }
+
+    /// Private transfer between notes
+    pub fn transfer_v2(
+        ctx: Context<TransferV2>,
+        proof_bytes: Vec<u8>,
+        public_inputs: TransferPublicInputs,
+        encrypted_notes: Vec<Vec<u8>>,
+    ) -> Result<()> {
+        instructions::transfer_v2::handler(ctx, proof_bytes, public_inputs, encrypted_notes)
+    }
+
+    /// Renew a note by moving it to the current epoch
+    pub fn renew_note(
+        ctx: Context<RenewNote>,
+        proof_bytes: Vec<u8>,
+        public_inputs: RenewPublicInputs,
+        encrypted_note: Vec<u8>,
+    ) -> Result<()> {
+        instructions::renew_note::handler(ctx, proof_bytes, public_inputs, encrypted_note)
+    }
+
+    // ========================================================================
+    // Garbage Collection Instructions
+    // ========================================================================
+
+    /// Garbage collect an expired epoch tree
+    pub fn gc_epoch_tree(ctx: Context<GarbageCollectEpochTree>, epoch: u64) -> Result<()> {
+        instructions::garbage_collect::handler_gc_epoch_tree(ctx, epoch)
+    }
+
+    /// Garbage collect an expired leaf chunk
+    pub fn gc_leaf_chunk(
+        ctx: Context<GarbageCollectLeafChunk>,
+        epoch: u64,
+        chunk_index: u32,
+    ) -> Result<()> {
+        instructions::garbage_collect::handler_gc_leaf_chunk(ctx, epoch, chunk_index)
+    }
+
+    /// Garbage collect a single nullifier marker
+    pub fn gc_nullifier(
+        ctx: Context<GarbageCollectNullifier>,
+        epoch: u64,
+        nullifier: [u8; 32],
+    ) -> Result<()> {
+        instructions::garbage_collect::handler_gc_nullifier(ctx, epoch, nullifier)
+    }
+
+    /// Batch garbage collect multiple nullifier markers
+    pub fn gc_nullifier_batch(
+        ctx: Context<GarbageCollectNullifierBatch>,
+        epoch: u64,
+    ) -> Result<()> {
+        instructions::garbage_collect::handler_gc_nullifier_batch(ctx, epoch)
+    }
+
+    // ========================================================================
+    // Admin Instructions
+    // ========================================================================
+
+    /// Pause the pool (emergency stop)
+    pub fn pause_pool(ctx: Context<PausePool>) -> Result<()> {
+        instructions::admin::handler_pause(ctx)
+    }
+
+    /// Unpause the pool
+    pub fn unpause_pool(ctx: Context<UnpausePool>) -> Result<()> {
+        instructions::admin::handler_unpause(ctx)
+    }
+
+    /// Transfer pool authority to a new address
+    pub fn transfer_authority(ctx: Context<TransferAuthority>) -> Result<()> {
+        instructions::admin::handler_transfer_authority(ctx)
+    }
+
+    // ========================================================================
+    // Utility Instructions
+    // ========================================================================
 
     // Lightweight dev-only method to exercise pairing syscall path.
     // Accepts a raw byte array and runs verify_alt_bn128_pairing.

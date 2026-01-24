@@ -23,3 +23,23 @@ test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 
 [test]
 startup_wait = 10000
+
+[test.validator]
+url = "http://127.0.0.1:8899"
+
+# Build configurations for different environments
+[workspace]
+# Use types directory for generated IDL types
+types = "target/types/"
+
+[build]
+# For local testing, enable mock-verifier feature
+# For production/devnet, use: anchor build (no features, uses real Groth16)
+[build.localnet]
+features = ["mock-verifier"]
+
+[build.devnet]
+features = ["altbn128_syscalls"]
+
+[build.mainnet]
+features = ["altbn128_syscalls"]

@@ -37,7 +37,7 @@ describe("shielded-pool", () => {
     // Ensure the test wallet has SOL on a fresh local validator.
     const sig = await provider.connection.requestAirdrop(
       payer.publicKey,
-      10 * anchor.web3.LAMPORTS_PER_SOL
+      10 * anchor.web3.LAMPORTS_PER_SOL,
     );
     await provider.connection.confirmTransaction(sig, "confirmed");
 
@@ -50,7 +50,7 @@ describe("shielded-pool", () => {
       9,
       Keypair.generate(),
       undefined,
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     console.log("Created test mint:", mint.toBase58());
@@ -58,27 +58,27 @@ describe("shielded-pool", () => {
     // Derive PDAs
     [poolConfig] = PublicKey.findProgramAddressSync(
       [Buffer.from("config"), mint.toBuffer()],
-      program.programId
+      program.programId,
     );
 
     [poolTree] = PublicKey.findProgramAddressSync(
       [Buffer.from("tree"), mint.toBuffer()],
-      program.programId
+      program.programId,
     );
 
     [vaultAuthority] = PublicKey.findProgramAddressSync(
       [Buffer.from("vault"), mint.toBuffer()],
-      program.programId
+      program.programId,
     );
 
     [withdrawVerifier] = PublicKey.findProgramAddressSync(
       [Buffer.from("verifier"), poolConfig.toBuffer(), Buffer.from("withdraw")],
-      program.programId
+      program.programId,
     );
 
     [transferVerifier] = PublicKey.findProgramAddressSync(
       [Buffer.from("verifier"), poolConfig.toBuffer(), Buffer.from("transfer")],
-      program.programId
+      program.programId,
     );
 
     // Create a regular legacy SPL token account owned by the PDA (off-curve owner)
@@ -90,7 +90,7 @@ describe("shielded-pool", () => {
       vaultAuthority,
       vaultAccountKp,
       undefined,
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
     console.log("Vault token account (non-ATA):", vaultAccount.toBase58());
 
@@ -102,7 +102,7 @@ describe("shielded-pool", () => {
       payer.publicKey,
       undefined,
       undefined,
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     await mintTo(
@@ -114,7 +114,7 @@ describe("shielded-pool", () => {
       10_000_000_000, // 10 tokens with 9 decimals
       undefined,
       undefined,
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     console.log("Minted tokens to user account");
@@ -127,7 +127,7 @@ describe("shielded-pool", () => {
         configSeed,
         merkleDepth,
         rootHistory,
-        nullifierChunkSize
+        nullifierChunkSize,
       )
       .accounts({
         poolConfig,
@@ -180,7 +180,7 @@ describe("shielded-pool", () => {
         zeroG2(),
         zeroG2(),
         zeroG2(),
-        makeIc(0)
+        makeIc(0),
       )
       .accounts({
         verifierConfig: withdrawVerifier,
@@ -199,12 +199,12 @@ describe("shielded-pool", () => {
 
     await program.methods
       .initializeVerifier(
-        { shieldedTransfer: {} },
+        { transfer: {} },
         zeroG1(),
         zeroG2(),
         zeroG2(),
         zeroG2(),
-        makeIc(0)
+        makeIc(0),
       )
       .accounts({
         verifierConfig: transferVerifier,
@@ -213,7 +213,7 @@ describe("shielded-pool", () => {
       .rpc();
 
     await program.methods
-      .appendVerifierIc({ shieldedTransfer: {} }, makeIc(7))
+      .appendVerifierIc({ transfer: {} }, makeIc(7))
       .accounts({
         verifierConfig: transferVerifier,
         poolConfig,
@@ -231,7 +231,7 @@ describe("shielded-pool", () => {
         mint.toBuffer(),
         Buffer.from(new Uint32Array([chunkIndex]).buffer),
       ],
-      program.programId
+      program.programId,
     );
 
     const tx = await program.methods
@@ -247,9 +247,8 @@ describe("shielded-pool", () => {
     console.log("Initialize leaf chunk tx:", tx);
 
     // Verify chunk was created with zero_copy account
-    const chunkAccountInfo = await provider.connection.getAccountInfo(
-      leafChunk
-    );
+    const chunkAccountInfo =
+      await provider.connection.getAccountInfo(leafChunk);
     assert.ok(chunkAccountInfo, "LeafChunk account should exist");
 
     // Account should be 8 (discriminator) + 32 (mint) + 4 (chunk_index) + 2 (count) + 2 (padding) + 256*32 (leaves)
@@ -257,7 +256,7 @@ describe("shielded-pool", () => {
     assert.equal(
       chunkAccountInfo.data.length,
       expectedSize,
-      "LeafChunk size should match"
+      "LeafChunk size should match",
     );
 
     console.log("LeafChunk account size:", chunkAccountInfo.data.length);
@@ -277,7 +276,7 @@ describe("shielded-pool", () => {
         mint.toBuffer(),
         Buffer.from(new Uint32Array([chunkIndex]).buffer),
       ],
-      program.programId
+      program.programId,
     );
 
     const tx = await program.methods
@@ -285,7 +284,7 @@ describe("shielded-pool", () => {
         new anchor.BN(amount),
         Array.from(commitment),
         encryptedNote,
-        Array.from(tag)
+        Array.from(tag),
       )
       .accounts({
         poolConfig,
@@ -313,9 +312,8 @@ describe("shielded-pool", () => {
     assert.equal(tree.rootsLen, 1);
 
     // Verify commitment was written to LeafChunk at offset 0
-    const chunkAccountInfo = await provider.connection.getAccountInfo(
-      leafChunk
-    );
+    const chunkAccountInfo =
+      await provider.connection.getAccountInfo(leafChunk);
     assert.ok(chunkAccountInfo);
 
     // Read count field: skip 8 (disc) + 32 (mint) + 4 (chunk_index) = 44 bytes
@@ -327,7 +325,7 @@ describe("shielded-pool", () => {
     assert.deepEqual(
       firstLeaf,
       commitment,
-      "First leaf should match commitment"
+      "First leaf should match commitment",
     );
 
     console.log("Tree after deposit - next_index:", tree.nextIndex.toNumber());
@@ -342,7 +340,7 @@ describe("shielded-pool", () => {
         mint.toBuffer(),
         Buffer.from(new Uint32Array([chunkIndex]).buffer),
       ],
-      program.programId
+      program.programId,
     );
 
     // Deposit 3 more commitments to test chunk filling
@@ -357,7 +355,7 @@ describe("shielded-pool", () => {
           Array.from(commitment),
           // Vec<u8> expects Buffer on the JS side
           encryptedNote,
-          Array.from(tag)
+          Array.from(tag),
         )
         .accounts({
           poolConfig,
@@ -383,9 +381,8 @@ describe("shielded-pool", () => {
     assert.equal(tree.nextIndex.toNumber(), 4, "Should have 4 leaves total");
 
     // Verify LeafChunk count
-    const chunkAccountInfo = await provider.connection.getAccountInfo(
-      leafChunk
-    );
+    const chunkAccountInfo =
+      await provider.connection.getAccountInfo(leafChunk);
     const count = chunkAccountInfo.data.readUInt16LE(44);
     assert.equal(count, 4, "LeafChunk should have count=4");
 
@@ -402,7 +399,7 @@ describe("shielded-pool", () => {
         poolId,
         Buffer.from(new Uint32Array([chunkIndex]).buffer),
       ],
-      program.programId
+      program.programId,
     );
 
     const tx = await program.methods
@@ -417,9 +414,8 @@ describe("shielded-pool", () => {
     console.log("Initialize nullifier chunk tx:", tx);
 
     // Verify chunk was created
-    const chunkAccountInfo = await provider.connection.getAccountInfo(
-      nullifierChunk
-    );
+    const chunkAccountInfo =
+      await provider.connection.getAccountInfo(nullifierChunk);
     assert.ok(chunkAccountInfo, "NullifierChunk account should exist");
 
     // Account should be 8 (disc) + 32 (pool_id) + 4 (chunk_index) + 2 (count) + 2 (padding) + 256*32 (nodes)
@@ -427,7 +423,7 @@ describe("shielded-pool", () => {
     assert.equal(
       chunkAccountInfo.data.length,
       expectedSize,
-      "NullifierChunk size should match"
+      "NullifierChunk size should match",
     );
 
     // Verify count is 0
@@ -436,7 +432,7 @@ describe("shielded-pool", () => {
 
     console.log(
       "NullifierChunk initialized with size:",
-      chunkAccountInfo.data.length
+      chunkAccountInfo.data.length,
     );
   });
 
@@ -481,7 +477,7 @@ describe("shielded-pool", () => {
       console.log("Correctly rejected invalid root");
       assert.match(
         err.toString(),
-        /(InvalidRoot|AnchorError|custom program error)/
+        /(InvalidRoot|AnchorError|custom program error)/,
       );
     }
   });
@@ -493,7 +489,7 @@ describe("shielded-pool", () => {
     // 3. Mock proof that verifies
 
     console.log(
-      "Withdraw test requires nullifier chunk initialization - skipped for now"
+      "Withdraw test requires nullifier chunk initialization - skipped for now",
     );
 
     // This demonstrates the structure even if we can't execute it yet
@@ -525,13 +521,12 @@ describe("shielded-pool", () => {
         poolId,
         Buffer.from(new Uint32Array([chunkIndex]).buffer),
       ],
-      program.programId
+      program.programId,
     );
 
     // Read chunk and verify nullifier count is still 0
-    let chunkAccountInfo = await provider.connection.getAccountInfo(
-      nullifierChunk
-    );
+    let chunkAccountInfo =
+      await provider.connection.getAccountInfo(nullifierChunk);
     assert.ok(chunkAccountInfo);
     const initialCount = chunkAccountInfo.data.readUInt16LE(44);
     assert.equal(initialCount, 0, "Nullifier chunk should start empty");
@@ -558,7 +553,7 @@ describe("shielded-pool", () => {
     console.log("- Nullifier chunk ready for insertion");
     console.log("- Chunk count:", initialCount);
     console.log(
-      "- In production, shielded_transfer/withdraw would check & mark nullifiers"
+      "- In production, shielded_transfer/withdraw would check & mark nullifiers",
     );
   });
 
@@ -578,7 +573,7 @@ describe("shielded-pool", () => {
         poolId,
         Buffer.from(new Uint32Array([chunkIndex]).buffer),
       ],
-      program.programId
+      program.programId,
     );
 
     // Get LeafChunk for the next index
@@ -590,7 +585,7 @@ describe("shielded-pool", () => {
         mint.toBuffer(),
         Buffer.from(new Uint32Array([leafChunkIndex]).buffer),
       ],
-      program.programId
+      program.programId,
     );
 
     const publicInputs = [
@@ -604,7 +599,7 @@ describe("shielded-pool", () => {
 
     // This would require a valid proof to execute
     console.log(
-      "Shielded transfer structure validated with nullifier and leaf chunks"
+      "Shielded transfer structure validated with nullifier and leaf chunks",
     );
     console.log("- Nullifier chunk:", nullifierChunk.toBase58());
     console.log("- Leaf chunk:", leafChunk.toBase58());

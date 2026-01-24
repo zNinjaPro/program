@@ -14,8 +14,8 @@ no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
-# Default keeps mock verifier behavior for local/dev; disable defaults for production builds.
-default = ["mock-verifier"]
+# Production builds enable real Groth16 verification; use mock-verifier for local testing only.
+default = []
 # Enable alt_bn128 syscalls (requires validator exposing sol_alt_bn128_* functions)
 altbn128_syscalls = []
 # Allow pairing fallbacks and zero-proof acceptance for local testing only.

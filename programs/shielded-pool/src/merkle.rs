@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::state::{PoolTree, MERKLE_DEPTH};
+use crate::state::{EpochTree, PoolTree, MERKLE_DEPTH, LEGACY_MERKLE_DEPTH};
 use crate::errors::ShieldedPoolError;
 use crate::field::reduce_bytes_to_field;
 #[cfg_attr(not(target_os = "solana"), allow(unused_imports))]
@@ -99,7 +99,7 @@ fn poseidon_hash2(left: [u8; 32], right: [u8; 32]) -> Result<[u8; 32]> {
     }
 }
 
-/// Zero hashes for Poseidon merkle tree (depth MERKLE_DEPTH)
+/// Zero hashes for Poseidon merkle tree (depth MERKLE_DEPTH = 12)
 /// zero_hashes[0] = Poseidon(0)
 /// zero_hashes[i] = Poseidon(zero_hashes[i-1], zero_hashes[i-1])
 ///
@@ -108,6 +108,7 @@ fn poseidon_hash2(left: [u8; 32], right: [u8; 32]) -> Result<[u8; 32]> {
 pub fn compute_zero_hashes(_depth: usize) -> [[u8; 32]; MERKLE_DEPTH] {
     #[cfg(target_os = "solana")]
     {
+        // Precomputed zero hashes for depth 12 (first 12 entries)
         return [
             hex_literal::hex!("0000000000000000000000000000000000000000000000000000000000000000"),
             hex_literal::hex!("829a01fae4f8e22b1b4ca5ad5b54a5834ee098a77b735bd57431a7656d29a108"),
@@ -121,17 +122,6 @@ pub fn compute_zero_hashes(_depth: usize) -> [[u8; 32]; MERKLE_DEPTH] {
             hex_literal::hex!("363f05d4d2cca7b40d87546181acd14f1d21f9535c3d13c45dfbb32afaa3c516"),
             hex_literal::hex!("beab72b4311584a18d104dbf69ef69690840fd9fc40263b58122052478f08117"),
             hex_literal::hex!("e4f44df15cd40969d4f1bea1110ea66ba4e275ec3839ae243d72cd22f01f0d21"),
-            hex_literal::hex!("b159372c0d35324c8f5fe23ff3fdf89901218d3d544eafaa115c08f2ddf6e205"),
-            hex_literal::hex!("ed736191e841bed7a395136f9fa614613debec5500f7ad6ef4d347ebdfd2dc03"),
-            hex_literal::hex!("cc5180e4ec4b20348de932af63145a84262d19dff70a7021004f908a3bbb0a14"),
-            hex_literal::hex!("794af051ca62f7b8442b34b6a502719aa31a49ba3abeda8186008fbb48f1331d"),
-            hex_literal::hex!("173f6cd904333bd65eff5ab013cdf034628a1a60c21e7cb9713b478716bddf15"),
-            hex_literal::hex!("1869e4f7fb4386284462475025833eb5dfeed358e6599fb341e5ddcaa077021f"),
-            hex_literal::hex!("ec6e0d9aabf53541d3d255ea5822dcd43ead632aa2aebb0ba8f0ca3394b88e22"),
-            hex_literal::hex!("33fbba7f378f62141641f322f3f05d40161059883aeedbbd89f09388e3c70812"),
-            // Padding for unused depths 20-31
-            [0u8; 32], [0u8; 32], [0u8; 32], [0u8; 32], [0u8; 32], [0u8; 32],
-            [0u8; 32], [0u8; 32], [0u8; 32], [0u8; 32], [0u8; 32], [0u8; 32],
         ];
     }
 
@@ -145,6 +135,129 @@ pub fn compute_zero_hashes(_depth: usize) -> [[u8; 32]; MERKLE_DEPTH] {
         return zeros;
     }
 }
+
+/// Legacy compute_zero_hashes for depth 32 (legacy PoolTree)
+pub fn compute_zero_hashes_legacy(_depth: usize) -> [[u8; 32]; LEGACY_MERKLE_DEPTH] {
+    #[cfg(target_os = "solana")]
+    {
+        // For legacy, we compute full 32 levels. On-chain we'd precompute all 32.
+        // For simplicity, we'll compute them dynamically.
+        let mut zeros = [[0u8; 32]; LEGACY_MERKLE_DEPTH];
+        zeros[0] = [0u8; 32];
+        for i in 1..LEGACY_MERKLE_DEPTH {
+            zeros[i] = hash_two(&zeros[i - 1], &zeros[i - 1]);
+        }
+        return zeros;
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let mut zeros = [[0u8; 32]; LEGACY_MERKLE_DEPTH];
+        zeros[0] = [0u8; 32];
+        for i in 1..LEGACY_MERKLE_DEPTH {
+            zeros[i] = hash_two(&zeros[i - 1], &zeros[i - 1]);
+        }
+        return zeros;
+    }
+}
+
+// ============================================================================
+// EpochTree Operations (New Epoch-Based System)
+// ============================================================================
+
+/// Insert a new leaf into an EpochTree
+/// Returns the new root and the leaf index
+pub fn insert_leaf_epoch(tree: &mut EpochTree, leaf: [u8; 32]) -> Result<(u64, [u8; 32])> {
+    let depth = tree.depth as usize;
+    let mut idx = tree.next_index;
+    
+    // Check if tree is full
+    if idx >= (1u64 << depth) {
+        return Err(ShieldedPoolError::TreeFull.into());
+    }
+    
+    let leaf_index = idx;
+    let mut cur_hash = leaf;
+    let mut level = 0usize;
+    
+    // Climb the tree, updating frontier nodes
+    while level < depth {
+        if idx % 2 == 0 {
+            // Left child: store in frontier
+            tree.frontier[level] = cur_hash;
+            // Continue climbing with zero hash as right sibling
+            let parent = hash_two(&cur_hash, &tree.zero_hashes[level]);
+            cur_hash = parent;
+            idx >>= 1;
+            level += 1;
+        } else {
+            // Right child: combine with left sibling from frontier
+            let left = tree.frontier[level];
+            let right = cur_hash;
+            let parent = hash_two(&left, &right);
+            cur_hash = parent;
+            idx >>= 1;
+            level += 1;
+        }
+    }
+    
+    // cur_hash is now the root
+    let root = cur_hash;
+    
+    // Update root ring buffer - write at current head, then advance
+    tree.roots[tree.roots_head as usize] = root;
+    tree.roots_head = ((tree.roots_head as usize + 1) % tree.roots.len()) as u8;
+    
+    if (tree.roots_len as usize) < tree.roots.len() {
+        tree.roots_len += 1;
+    }
+    
+    // Increment next index
+    tree.next_index += 1;
+    
+    Ok((leaf_index, root))
+}
+
+/// Check if a root exists in the EpochTree's root history
+pub fn is_known_root_epoch(tree: &EpochTree, root: &[u8; 32]) -> bool {
+    let len = tree.roots_len as usize;
+    for i in 0..len {
+        if &tree.roots[i] == root {
+            return true;
+        }
+    }
+    false
+}
+
+/// Compute the current root from the EpochTree's frontier
+pub fn compute_root_epoch(tree: &EpochTree) -> [u8; 32] {
+    let depth = tree.depth as usize;
+    let mut idx = tree.next_index;
+    
+    if idx == 0 {
+        // Empty tree - return zero hash at root level
+        return tree.zero_hashes[depth - 1];
+    }
+    
+    // Start from the last inserted leaf position
+    idx -= 1;
+    let mut cur_hash = tree.frontier[0];
+    
+    for level in 0..depth {
+        if idx % 2 == 0 {
+            cur_hash = hash_two(&cur_hash, &tree.zero_hashes[level]);
+        } else {
+            cur_hash = hash_two(&tree.frontier[level], &cur_hash);
+        }
+        idx >>= 1;
+    }
+    
+    cur_hash
+}
+
+// ============================================================================
+// Legacy PoolTree Operations (Preserved for compatibility)
+// ============================================================================
 
 /// Insert a new leaf into the frontier-only Merkle tree
 /// Returns the new root and the leaf index
@@ -234,11 +347,11 @@ mod tests {
             depth: 4,
             _padding0: [0u8; 7],
             next_index: 0,
-            frontier: [[0; 32]; MERKLE_DEPTH],
+            frontier: [[0; 32]; LEGACY_MERKLE_DEPTH],
             roots: [[0; 32]; 64],
             roots_len: 0,
             roots_head: 0,
-            zero_hashes: compute_zero_hashes(4),
+            zero_hashes: compute_zero_hashes_legacy(LEGACY_MERKLE_DEPTH),
             _padding_end: [0u8; 6],
         };
         
@@ -260,11 +373,11 @@ mod tests {
             depth: 4,
             _padding0: [0u8; 7],
             next_index: 0,
-            frontier: [[0; 32]; MERKLE_DEPTH],
+            frontier: [[0; 32]; LEGACY_MERKLE_DEPTH],
             roots: [[0; 32]; 64],
             roots_len: 0,
             roots_head: 0,
-            zero_hashes: compute_zero_hashes(4),
+            zero_hashes: compute_zero_hashes_legacy(LEGACY_MERKLE_DEPTH),
             _padding_end: [0u8; 6],
         };
         
@@ -295,11 +408,11 @@ mod tests {
             depth: 8, // 2^8 = 256 leaves capacity
             _padding0: [0u8; 7],
             next_index: 0,
-            frontier: [[0; 32]; MERKLE_DEPTH],
+            frontier: [[0; 32]; LEGACY_MERKLE_DEPTH],
             roots: [[0; 32]; 64],
             roots_len: 0,
             roots_head: 0,
-            zero_hashes: compute_zero_hashes(8),
+            zero_hashes: compute_zero_hashes_legacy(LEGACY_MERKLE_DEPTH),
             _padding_end: [0u8; 6],
         };
         
@@ -322,11 +435,11 @@ mod tests {
             depth: 2, // Only 4 leaves max
             _padding0: [0u8; 7],
             next_index: 0,
-            frontier: [[0; 32]; MERKLE_DEPTH],
+            frontier: [[0; 32]; LEGACY_MERKLE_DEPTH],
             roots: [[0; 32]; 64],
             roots_len: 0,
             roots_head: 0,
-            zero_hashes: compute_zero_hashes(2),
+            zero_hashes: compute_zero_hashes_legacy(LEGACY_MERKLE_DEPTH),
             _padding_end: [0u8; 6],
         };
         

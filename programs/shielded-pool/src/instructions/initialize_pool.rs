@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use crate::state::*;
-use crate::merkle::compute_zero_hashes;
+use crate::merkle::compute_zero_hashes_legacy;
 
 #[derive(Accounts)]
 #[instruction(config_seed: Vec<u8>)]
@@ -58,16 +58,16 @@ pub fn handler(
     pool_config.program_bump = ctx.bumps.pool_config;
     pool_config.tree_bump = ctx.bumps.pool_tree;
     pool_config.nullifier_chunk_size = nullifier_chunk_size;
-    pool_config.reserved = [0; 16];
+    pool_config.reserved = [0; 56];
 
     // Initialize PoolTree with zero hashes
     pool_tree.depth = merkle_depth;
     pool_tree.next_index = 0;
-    pool_tree.frontier = [[0; 32]; MERKLE_DEPTH];
-    pool_tree.roots = [[0; 32]; ROOT_HISTORY];
+    pool_tree.frontier = [[0; 32]; LEGACY_MERKLE_DEPTH];
+    pool_tree.roots = [[0; 32]; LEGACY_ROOT_HISTORY];
     pool_tree.roots_len = 0;
     pool_tree.roots_head = 0;
-    pool_tree.zero_hashes = compute_zero_hashes(merkle_depth as usize);
+    pool_tree.zero_hashes = compute_zero_hashes_legacy(merkle_depth as usize);
 
     Ok(())
 }

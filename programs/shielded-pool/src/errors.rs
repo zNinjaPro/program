@@ -2,24 +2,75 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum ShieldedPoolError {
-    #[msg("Merkle tree is full")]
-    TreeFull,
-    #[msg("Invalid root")]
-    InvalidRoot,
-    #[msg("Nullifier already spent")]
-    NullifierAlreadySpent,
-    #[msg("Invalid proof")]
-    InvalidProof,
-    #[msg("Invalid public inputs")]
-    InvalidPublicInputs,
-    #[msg("Nullifier chunk full")]
-    NullifierChunkFull,
-    #[msg("Invalid commitment")]
-    InvalidCommitment,
-    #[msg("Invalid amount")]
-    InvalidAmount,
+    // ========== General Errors ==========
     #[msg("Math overflow")]
     MathOverflow,
+
+    #[msg("Invalid proof")]
+    InvalidProof,
+
+    #[msg("Invalid public inputs")]
+    InvalidPublicInputs,
+
     #[msg("Invalid verifier config")]
     InvalidVerifierConfig,
+
+    #[msg("Invalid commitment")]
+    InvalidCommitment,
+
+    #[msg("Invalid amount")]
+    InvalidAmount,
+
+    // ========== Pool State Errors ==========
+    #[msg("Pool is paused")]
+    PoolPaused,
+
+    #[msg("Unauthorized - not pool authority")]
+    Unauthorized,
+
+    // ========== Epoch Errors ==========
+    #[msg("Epoch is not active, cannot deposit")]
+    EpochNotActive,
+
+    #[msg("Epoch is not frozen, cannot finalize")]
+    EpochNotFrozen,
+
+    #[msg("Epoch is not finalized, cannot spend")]
+    EpochNotFinalized,
+
+    #[msg("Epoch has expired, cannot spend")]
+    EpochExpired,
+
+    #[msg("Epoch has not expired yet, cannot garbage collect")]
+    EpochNotExpired,
+
+    #[msg("Epoch is not ready for rollover")]
+    EpochNotReadyForRollover,
+
+    #[msg("Epoch is not ready for finalization")]
+    EpochNotReadyForFinalization,
+
+    #[msg("Invalid epoch number")]
+    InvalidEpoch,
+
+    // ========== Merkle Tree Errors ==========
+    #[msg("Merkle tree is full")]
+    TreeFull,
+
+    #[msg("Invalid Merkle root")]
+    InvalidRoot,
+
+    #[msg("Leaf chunk is full")]
+    LeafChunkFull,
+
+    // ========== Nullifier Errors ==========
+    #[msg("Nullifier already exists (double-spend attempt)")]
+    NullifierAlreadyExists,
+
+    #[msg("Nullifier chunk full")]
+    NullifierChunkFull,
+
+    // ========== Legacy Errors (for compatibility) ==========
+    #[msg("Nullifier already spent")]
+    NullifierAlreadySpent,
 }

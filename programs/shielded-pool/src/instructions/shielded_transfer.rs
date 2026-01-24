@@ -28,7 +28,7 @@ pub struct ShieldedTransfer<'info> {
         seeds = [
             b"verifier",
             pool_config.key().as_ref(),
-            CircuitType::ShieldedTransfer.seed(),
+            CircuitType::Transfer.seed(),
         ],
         bump
     )]
@@ -91,7 +91,7 @@ pub fn handler(
     let verifier_account = ctx.accounts.verifier_config.load()?;
     let circuit = CircuitType::from_u8(verifier_account.circuit)
         .ok_or(ShieldedPoolError::InvalidVerifierConfig)?;
-    require!(circuit == CircuitType::ShieldedTransfer, ShieldedPoolError::InvalidVerifierConfig);
+    require!(circuit == CircuitType::Transfer, ShieldedPoolError::InvalidVerifierConfig);
     let vk = Box::new(VerifyingKey::from(&*verifier_account));
     let proof_valid = verify_groth16_proof(&proof, &public_inputs, &vk)?;
     require!(proof_valid, ShieldedPoolError::InvalidProof);
