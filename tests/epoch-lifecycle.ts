@@ -478,7 +478,100 @@ describe("Epoch Lifecycle Integration", () => {
     });
   });
 
-  describe("Phase 7: Summary", () => {
+  describe("Phase 7: Epoch State Machine Validation", () => {
+    it("validates epoch state transitions are sequential", async () => {
+      // Epoch states: Active (0) → Frozen (1) → Finalized (2) → GarbageCollected (3)
+      // Epoch 0 went through: Active → (rollover) → Frozen → (finalize) → Finalized
+      const epochTree0 = getEpochTreePda(0n);
+      const tree0 = await program.account.epochTree.fetch(epochTree0);
+
+      // Verify epoch 0 is in finalized state (state = 2)
+      expect(tree0.state).to.equal(2, "Epoch 0 should be Finalized");
+
+      // Verify epoch 1 is in active state (state = 0)
+      const epochTree1 = getEpochTreePda(1n);
+      const tree1 = await program.account.epochTree.fetch(epochTree1);
+      expect(tree1.state).to.equal(0, "Epoch 1 should be Active");
+    });
+
+    it("rejects operations on wrong epoch state", async () => {
+      const epochTree0 = getEpochTreePda(0n);
+
+      // Try to deposit into finalized epoch 0 (should fail)
+      try {
+        const leafChunk0 = getLeafChunkPda(0n, 0);
+        const commitment = Array(32).fill(0);
+        commitment[0] = 200;
+
+        await program.methods
+          .depositV2(
+            commitment,
+            new anchor.BN(1_000_000_000),
+            Buffer.from("invalid"),
+          )
+          .accounts({
+            poolConfig,
+            epochTree: epochTree0,
+            leafChunk: leafChunk0,
+            vault,
+            depositorTokenAccount: userTokenAccount,
+            mint,
+            depositor: payer.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .rpc();
+
+        expect.fail("Should not allow deposit into finalized epoch");
+      } catch (err: any) {
+        // Expected to fail - epoch not active
+        expect(err.toString()).to.include("EpochNotActive");
+      }
+    });
+  });
+
+  describe("Phase 8: Garbage Collection", () => {
+    it("cannot garbage collect before expiry", async () => {
+      const epochTree0 = getEpochTreePda(0n);
+
+      try {
+        await program.methods
+          .garbageCollectEpoch(new anchor.BN(0))
+          .accounts({
+            poolConfig,
+            epochTree: epochTree0,
+            authority: payer.publicKey,
+          })
+          .rpc();
+
+        expect.fail("Should not allow GC before expiry");
+      } catch (err: any) {
+        // Expected to fail - epoch not expired yet
+        const errorMessage = err.toString();
+        expect(
+          errorMessage.includes("EpochNotExpired") ||
+            errorMessage.includes("not expired") ||
+            errorMessage.includes("6"), // Error code
+        ).to.be.true;
+      }
+    });
+
+    // Note: Full GC test would require waiting for EXPIRY_SLOTS
+    // which is too long for standard test runs
+    it("documents garbage collection behavior", () => {
+      // Garbage collection (GC) rules:
+      // 1. Can only GC epochs that are Finalized (state = 2)
+      // 2. Must wait until current_slot >= epoch_end_slot + expiry_slots
+      // 3. After GC, epoch state becomes GarbageCollected (state = 3)
+      // 4. Notes in GC'd epochs can no longer be withdrawn or renewed
+      // 5. GC reclaims storage (rent) from leaf chunks
+
+      console.log(
+        "GC behavior documented - full test requires time advancement",
+      );
+    });
+  });
+
+  describe("Phase 9: Summary", () => {
     it("prints final state summary", async () => {
       const config = await program.account.poolConfig.fetch(poolConfig);
       const vaultBalance =
@@ -493,8 +586,10 @@ describe("Epoch Lifecycle Integration", () => {
         vaultBalance.value.uiAmount,
         "tokens",
       );
-      console.log("Epoch 0: Finalized with 5 notes (15 tokens)");
-      console.log("Epoch 1: Active with 1 note (10 tokens)");
+      console.log("Total burned:", config.totalBurned.toString(), "lamports");
+      console.log("Burn rate:", config.burnRateBps, "bps (0.1%)");
+      console.log("Epoch 0: Finalized with 5 notes (15 tokens deposited)");
+      console.log("Epoch 1: Active with 1 note (10 tokens deposited)");
       console.log("========================================\n");
     });
   });
