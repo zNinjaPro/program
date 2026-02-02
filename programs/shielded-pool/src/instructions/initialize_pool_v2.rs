@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::state::*;
+use crate::errors::ShieldedPoolError;
 use crate::merkle::compute_zero_hashes;
 
 #[derive(Accounts)]
@@ -59,9 +60,13 @@ pub fn handler(
     epoch_duration_slots: u64,
     expiry_slots: u64,
     finalization_delay_slots: u64,
+    burn_rate_bps: u16,
 ) -> Result<()> {
     let pool_config = &mut ctx.accounts.pool_config;
     let clock = Clock::get()?;
+
+    // Validate burn rate (max 10% = 1000 basis points)
+    require!(burn_rate_bps <= 1000, ShieldedPoolError::InvalidBurnRate);
 
     // Use defaults if zero is passed
     let epoch_duration = if epoch_duration_slots == 0 {
@@ -98,7 +103,9 @@ pub fn handler(
     pool_config.vault_authority_bump = ctx.bumps.vault_authority;
     pool_config.config_bump = ctx.bumps.pool_config;
     pool_config.paused = false;
-    pool_config.reserved = [0; 56];
+    pool_config.burn_rate_bps = burn_rate_bps;
+    pool_config.total_burned = 0;
+    pool_config.reserved = [0; 46];
 
     // Initialize EpochTree for epoch 0
     let mut epoch_tree = ctx.accounts.epoch_tree.load_init()?;

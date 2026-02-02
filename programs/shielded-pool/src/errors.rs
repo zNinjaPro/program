@@ -73,4 +73,14 @@ pub enum ShieldedPoolError {
     // ========== Legacy Errors (for compatibility) ==========
     #[msg("Nullifier already spent")]
     NullifierAlreadySpent,
+
+    // ========== Token Gate & Burn Errors ==========
+    #[msg("User must hold the pool token to transact")]
+    InsufficientGateBalance,
+
+    #[msg("Burn rate exceeds maximum allowed (10%)")]
+    InvalidBurnRate,
+
+    #[msg("Burn calculation overflow")]
+    BurnOverflow,
 }

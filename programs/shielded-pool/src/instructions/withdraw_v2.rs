@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked};
+use anchor_spl::token_interface::{burn, transfer_checked, Burn, Mint, TokenAccount, TokenInterface, TransferChecked};
 use crate::state::*;
 use crate::errors::ShieldedPoolError;
 use crate::events::WithdrawEvent;
@@ -71,10 +71,10 @@ pub struct WithdrawV2<'info> {
     )]
     pub vault: InterfaceAccount<'info, TokenAccount>,
 
-    /// Recipient's token account
+    /// Recipient's token account - also serves as gate validation (must have non-zero balance after receive)
     #[account(
         mut,
-        constraint = recipient_token_account.mint == pool_config.mint,
+        constraint = recipient_token_account.mint == pool_config.mint @ ShieldedPoolError::InvalidCommitment,
     )]
     pub recipient_token_account: InterfaceAccount<'info, TokenAccount>,
 
@@ -145,6 +145,17 @@ pub fn handler(
     nullifier_marker.nullifier = public_inputs.nullifier;
     nullifier_marker.bump = ctx.bumps.nullifier_marker;
 
+    // Calculate burn amount (0.1% = 10 basis points by default)
+    let burn_amount = public_inputs.amount
+        .checked_mul(pool_config.burn_rate_bps as u64)
+        .ok_or(ShieldedPoolError::BurnOverflow)?
+        .checked_div(10_000)
+        .ok_or(ShieldedPoolError::BurnOverflow)?;
+    
+    let withdraw_amount = public_inputs.amount
+        .checked_sub(burn_amount)
+        .ok_or(ShieldedPoolError::BurnOverflow)?;
+
     // Transfer tokens from vault to recipient
     let pool_key = pool_config.key();
     let seeds = &[
@@ -154,6 +165,25 @@ pub fn handler(
     ];
     let signer_seeds = &[&seeds[..]];
 
+    // Burn the burn_amount from vault
+    if burn_amount > 0 {
+        let burn_cpi_accounts = Burn {
+            mint: ctx.accounts.mint.to_account_info(),
+            from: ctx.accounts.vault.to_account_info(),
+            authority: ctx.accounts.vault_authority.to_account_info(),
+        };
+        let burn_cpi_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            burn_cpi_accounts,
+            signer_seeds,
+        );
+        burn(burn_cpi_ctx, burn_amount)?;
+
+        // Update cumulative burn counter
+        pool_config.total_burned = pool_config.total_burned.saturating_add(burn_amount);
+    }
+
+    // Transfer remaining tokens to recipient
     let cpi_accounts = TransferChecked {
         from: ctx.accounts.vault.to_account_info(),
         mint: ctx.accounts.mint.to_account_info(),
@@ -165,7 +195,7 @@ pub fn handler(
         cpi_accounts,
         signer_seeds,
     );
-    transfer_checked(cpi_ctx, public_inputs.amount, ctx.accounts.mint.decimals)?;
+    transfer_checked(cpi_ctx, withdraw_amount, ctx.accounts.mint.decimals)?;
 
     // Update pool stats
     pool_config.total_withdrawals = pool_config.total_withdrawals.saturating_add(1);
@@ -180,9 +210,11 @@ pub fn handler(
     });
 
     msg!(
-        "Withdraw: epoch={}, amount={}, recipient={}",
+        "Withdraw: epoch={}, amount={}, burned={}, sent={}, recipient={}",
         public_inputs.epoch,
         public_inputs.amount,
+        burn_amount,
+        withdraw_amount,
         public_inputs.recipient
     );
 

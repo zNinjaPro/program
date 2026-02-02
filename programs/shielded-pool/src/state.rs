@@ -110,8 +110,15 @@ pub struct PoolConfig {
     /// Legacy: Nullifier chunk size
     pub nullifier_chunk_size: u16,
 
+    // ========== Token Gate & Burn Fields ==========
+    /// Burn rate in basis points (10 = 0.1%)
+    pub burn_rate_bps: u16,
+
+    /// Total tokens burned across all transactions (for analytics)
+    pub total_burned: u64,
+
     /// Reserved for future use
-    pub reserved: [u8; 56],
+    pub reserved: [u8; 46],
 }
 
 impl PoolConfig {
@@ -136,7 +143,9 @@ impl PoolConfig {
         1 +                     // program_bump
         1 +                     // tree_bump
         2 +                     // nullifier_chunk_size
-        56;                     // reserved
+        2 +                     // burn_rate_bps
+        8 +                     // total_burned
+        46;                     // reserved (reduced from 56)
 }
 
 // ============================================================================

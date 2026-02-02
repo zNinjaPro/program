@@ -58,7 +58,9 @@ pub fn handler(
     pool_config.program_bump = ctx.bumps.pool_config;
     pool_config.tree_bump = ctx.bumps.pool_tree;
     pool_config.nullifier_chunk_size = nullifier_chunk_size;
-    pool_config.reserved = [0; 56];
+    pool_config.burn_rate_bps = 10;  // Default 0.1% for v1 pools
+    pool_config.total_burned = 0;
+    pool_config.reserved = [0; 46];
 
     // Initialize PoolTree with zero hashes
     pool_tree.depth = merkle_depth;

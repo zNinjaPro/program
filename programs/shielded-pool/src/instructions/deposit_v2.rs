@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked};
+use anchor_spl::token_interface::{burn, transfer_checked, Burn, Mint, TokenAccount, TokenInterface, TransferChecked};
 use crate::state::*;
 use crate::errors::ShieldedPoolError;
 use crate::events::DepositEvent;
@@ -42,10 +42,12 @@ pub struct DepositV2<'info> {
     )]
     pub vault: InterfaceAccount<'info, TokenAccount>,
 
-    /// Depositor's token account
+    /// Depositor's token account - also serves as gate validation (must have non-zero balance)
     #[account(
         mut,
-        constraint = depositor_token_account.mint == pool_config.mint,
+        constraint = depositor_token_account.mint == pool_config.mint @ ShieldedPoolError::InvalidCommitment,
+        constraint = depositor_token_account.owner == depositor.key() @ ShieldedPoolError::Unauthorized,
+        constraint = depositor_token_account.amount > 0 @ ShieldedPoolError::InsufficientGateBalance,
     )]
     pub depositor_token_account: InterfaceAccount<'info, TokenAccount>,
 
@@ -83,7 +85,35 @@ pub fn handler(
         ShieldedPoolError::EpochNotActive
     );
 
-    // Transfer tokens from depositor to vault
+    // Calculate burn amount (0.1% = 10 basis points by default)
+    let burn_amount = amount
+        .checked_mul(pool_config.burn_rate_bps as u64)
+        .ok_or(ShieldedPoolError::BurnOverflow)?
+        .checked_div(10_000)
+        .ok_or(ShieldedPoolError::BurnOverflow)?;
+    
+    let deposit_amount = amount
+        .checked_sub(burn_amount)
+        .ok_or(ShieldedPoolError::BurnOverflow)?;
+
+    // Burn the burn_amount from depositor's token account
+    if burn_amount > 0 {
+        let burn_cpi_accounts = Burn {
+            mint: ctx.accounts.mint.to_account_info(),
+            from: ctx.accounts.depositor_token_account.to_account_info(),
+            authority: ctx.accounts.depositor.to_account_info(),
+        };
+        let burn_cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            burn_cpi_accounts,
+        );
+        burn(burn_cpi_ctx, burn_amount)?;
+
+        // Update cumulative burn counter
+        pool_config.total_burned = pool_config.total_burned.saturating_add(burn_amount);
+    }
+
+    // Transfer remaining tokens from depositor to vault
     let cpi_accounts = TransferChecked {
         from: ctx.accounts.depositor_token_account.to_account_info(),
         mint: ctx.accounts.mint.to_account_info(),
@@ -94,7 +124,7 @@ pub fn handler(
         ctx.accounts.token_program.to_account_info(),
         cpi_accounts,
     );
-    transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
+    transfer_checked(cpi_ctx, deposit_amount, ctx.accounts.mint.decimals)?;
 
     // Insert commitment into epoch tree
     let (leaf_index, _new_root) = {
@@ -127,10 +157,12 @@ pub fn handler(
     });
 
     msg!(
-        "Deposit: epoch={}, leaf_index={}, amount={}",
+        "Deposit: epoch={}, leaf_index={}, amount={}, burned={}, credited={}",
         pool_config.current_epoch,
         leaf_index,
-        amount
+        amount,
+        burn_amount,
+        deposit_amount
     );
 
     Ok(())

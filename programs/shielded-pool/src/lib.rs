@@ -105,13 +105,15 @@ pub mod shielded_pool {
     // ========================================================================
 
     /// Initialize a new epoch-based shielded pool
+    /// burn_rate_bps: Burn rate in basis points (10 = 0.1%, max 1000 = 10%)
     pub fn initialize_pool_v2(
         ctx: Context<InitializePoolV2>,
         epoch_duration_slots: u64,
         expiry_slots: u64,
         finalization_delay_slots: u64,
+        burn_rate_bps: u16,
     ) -> Result<()> {
-        instructions::initialize_pool_v2::handler(ctx, epoch_duration_slots, expiry_slots, finalization_delay_slots)
+        instructions::initialize_pool_v2::handler(ctx, epoch_duration_slots, expiry_slots, finalization_delay_slots, burn_rate_bps)
     }
 
     /// Initialize a leaf chunk for storing commitments
