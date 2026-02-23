@@ -28,10 +28,14 @@ pub const DEFAULT_EPOCH_EXPIRY_SLOTS: u64 = 38_880_000;
 /// Default finalization delay after epoch ends (~1 day)
 pub const DEFAULT_FINALIZATION_DELAY_SLOTS: u64 = 216_000;
 
-// Chain ID for Solana networks
-// For devnet/testnet: use a test value
-// For mainnet-beta: should be updated to a production value
-pub const CHAIN_ID: [u8; 32] = [0u8; 32];
+// Chain ID for Solana networks — SHA-256("zNinja-devnet-v1")
+// For mainnet-beta: recompute with a production identifier.
+pub const CHAIN_ID: [u8; 32] = [
+    0x29, 0xed, 0xe5, 0xd3, 0x00, 0x30, 0x5d, 0xce,
+    0x11, 0x37, 0x91, 0x39, 0xa6, 0xba, 0xca, 0xd0,
+    0xb7, 0xc2, 0xa5, 0xf2, 0x83, 0x6f, 0x3c, 0xef,
+    0x65, 0xe6, 0xce, 0xb8, 0x51, 0x9e, 0x41, 0xc5,
+];
 
 // ============================================================================
 // Legacy constants for backward compatibility with PoolTree

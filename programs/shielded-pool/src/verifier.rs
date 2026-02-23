@@ -2,6 +2,15 @@ use anchor_lang::prelude::*;
 use crate::errors::ShieldedPoolError;
 use crate::state::VerifierConfig;
 
+// SAFETY: mock-verifier accepts all-zero proofs. It must NEVER be enabled
+// alongside altbn128_syscalls (the real verifier used on devnet/mainnet).
+// If both features are active, the build will fail at compile time.
+#[cfg(all(feature = "mock-verifier", feature = "altbn128_syscalls"))]
+compile_error!(
+    "SECURITY: `mock-verifier` and `altbn128_syscalls` cannot be enabled together. \
+     `mock-verifier` accepts all-zero proofs and must never be used in production builds."
+);
+
 /// BN254 field prime (alt_bn128)
 /// p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
 const BN254_FIELD_SIZE: [u8; 32] = [
@@ -114,7 +123,6 @@ pub fn verify_groth16_proof(
         && proof.pi_b.iter().all(|&b| b == 0)
         && proof.pi_c.iter().all(|&b| b == 0)
     {
-        msg!("⚠️ Mock proof detected (all zeros) - accepting (mock-verifier)");
         return Ok(true);
     }
 
@@ -219,8 +227,6 @@ fn verify_pairing_equation(
     pairing_input.extend_from_slice(delta_g2);
     
     // Call alt_bn128_pairing syscall to verify the equation
-    msg!("Verifying pairing equation with {} bytes input", pairing_input.len());
-    
     let is_valid = crate::syscalls::verify_alt_bn128_pairing(&pairing_input)?;
     
     Ok(is_valid)
@@ -245,7 +251,6 @@ fn negate_g1(point: &[u8; 64]) -> Result<[u8; 64]> {
 
     // Reject points with non-field y-coordinates to avoid modular underflow
     if !is_in_field(&y_coord) {
-        msg!("negate_g1: y-coordinate not in BN254 field");
         return Err(ShieldedPoolError::InvalidProof.into());
     }
 
@@ -279,7 +284,6 @@ fn field_negate(value: &[u8; 32]) -> Result<[u8; 32]> {
     }
 
     if borrow != 0 {
-        msg!("field_negate: value is not a canonical field element");
         return Err(ShieldedPoolError::InvalidProof.into());
     }
 

@@ -20,9 +20,10 @@ pub mod shielded_pool {
     use super::*;
 
     // ========================================================================
-    // Legacy v1 Instructions
+    // Legacy v1 Instructions — gated behind `legacy-v1` feature
     // ========================================================================
 
+    #[cfg(feature = "legacy-v1")]
     pub fn initialize_pool(
         ctx: Context<InitializePool>,
         config_seed: Vec<u8>,
@@ -33,6 +34,7 @@ pub mod shielded_pool {
         instructions::initialize_pool::handler(ctx, config_seed, merkle_depth, root_history, nullifier_chunk_size)
     }
 
+    #[cfg(feature = "legacy-v1")]
     pub fn initialize_leaf_chunk(
         ctx: Context<InitializeLeafChunk>,
         chunk_index: u32,
@@ -40,6 +42,7 @@ pub mod shielded_pool {
         instructions::initialize_leaf_chunk::handler(ctx, chunk_index)
     }
 
+    #[cfg(feature = "legacy-v1")]
     pub fn initialize_nullifier_chunk(
         ctx: Context<InitializeNullifierChunk>,
         pool_id: [u8; 32],
@@ -68,6 +71,7 @@ pub mod shielded_pool {
         instructions::append_verifier_ic::handler(ctx, circuit, ic_points)
     }
 
+    #[cfg(feature = "legacy-v1")]
     pub fn deposit_shielded(
         ctx: Context<DepositShielded>,
         amount: u64,
@@ -78,6 +82,7 @@ pub mod shielded_pool {
         instructions::deposit_shielded::handler(ctx, amount, commitment, encrypted_note, tag)
     }
 
+    #[cfg(feature = "legacy-v1")]
     pub fn shielded_transfer(
         ctx: Context<ShieldedTransfer>,
         proof_bytes: Vec<u8>,
@@ -90,6 +95,7 @@ pub mod shielded_pool {
         instructions::shielded_transfer::handler(ctx, proof_bytes, public_inputs, encrypted_notes_out, tags_out, n_in, n_out)
     }
 
+    #[cfg(feature = "legacy-v1")]
     pub fn withdraw_shielded(
         ctx: Context<WithdrawShielded>,
         proof_bytes: Vec<u8>,
@@ -229,11 +235,12 @@ pub mod shielded_pool {
     }
 
     // ========================================================================
-    // Utility Instructions
+    // Utility Instructions — dev-only, gated behind `legacy-v1`
     // ========================================================================
 
     // Lightweight dev-only method to exercise pairing syscall path.
     // Accepts a raw byte array and runs verify_alt_bn128_pairing.
+    #[cfg(feature = "legacy-v1")]
     pub fn verify_pairing(_ctx: Context<VerifyPairing>, input: Vec<u8>) -> Result<()> {
         let ok = crate::syscalls::verify_alt_bn128_pairing(&input)?;
         if ok { msg!("verify_pairing: pairing result = true"); } else { msg!("verify_pairing: pairing result = false"); }
@@ -241,6 +248,7 @@ pub mod shielded_pool {
     }
 }
 
+#[cfg(feature = "legacy-v1")]
 #[derive(Accounts)]
 pub struct VerifyPairing<'info> {
     #[account(mut)]

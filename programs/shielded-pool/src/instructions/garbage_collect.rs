@@ -282,12 +282,33 @@ pub fn handler_gc_nullifier_batch(
     );
 
     // Close all remaining accounts (nullifier markers)
+    // SECURITY: validate each account is actually a NullifierMarker for the target epoch
+    let nullifier_discriminator = <NullifierMarker as anchor_lang::Discriminator>::DISCRIMINATOR;
     let mut closed_count = 0u32;
     
     for account_info in ctx.remaining_accounts.iter() {
         // Skip if not owned by this program
         if account_info.owner != ctx.program_id {
             continue;
+        }
+
+        // Validate account is a NullifierMarker by checking Anchor discriminator
+        {
+            let data = account_info.try_borrow_data()?;
+            if data.len() < NullifierMarker::LEN {
+                return Err(ShieldedPoolError::InvalidNullifierMarker.into());
+            }
+            // First 8 bytes must be the NullifierMarker discriminator
+            if data[..8] != *nullifier_discriminator {
+                return Err(ShieldedPoolError::InvalidNullifierMarker.into());
+            }
+            // Bytes 40..48 are the epoch field (after 8 disc + 32 pool)
+            let account_epoch = u64::from_le_bytes(
+                data[40..48].try_into().map_err(|_| ShieldedPoolError::InvalidNullifierMarker)?
+            );
+            if account_epoch != epoch {
+                return Err(ShieldedPoolError::InvalidNullifierMarker.into());
+            }
         }
         
         // Transfer lamports to collector

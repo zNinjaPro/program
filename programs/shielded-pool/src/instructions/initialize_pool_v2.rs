@@ -123,7 +123,7 @@ pub fn handler(
     epoch_tree.roots_len = 0;
     epoch_tree.roots_head = 0;
     epoch_tree.final_root = [0; 32];
-    epoch_tree.zero_hashes = compute_zero_hashes(MERKLE_DEPTH);
+    epoch_tree.zero_hashes = compute_zero_hashes(MERKLE_DEPTH)?;
 
     msg!("Initialized pool for mint {} with epoch 0", ctx.accounts.mint.key());
     msg!("Epoch duration: {} slots, Expiry: {} slots", epoch_duration, expiry);

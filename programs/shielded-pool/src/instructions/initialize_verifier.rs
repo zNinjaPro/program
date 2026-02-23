@@ -19,8 +19,8 @@ pub struct InitializeVerifier<'info> {
     pub verifier_config: AccountLoader<'info, VerifierConfig>,
 
     #[account(
-        seeds = [b"config", pool_config.mint.as_ref()],
-        bump = pool_config.program_bump,
+        seeds = [b"pool_config", pool_config.mint.as_ref()],
+        bump = pool_config.config_bump,
     )]
     pub pool_config: Account<'info, PoolConfig>,
 
@@ -39,14 +39,6 @@ pub fn handler(
     vk_delta: [[u8; 32]; 4],
     ic_points: Vec<[[u8; 32]; 2]>,
 ) -> Result<()> {
-    msg!(
-        "initialize_verifier: payer={}, signer={}, pool_config={} verifier_config={}",
-        ctx.accounts.payer.key(),
-        ctx.accounts.payer.is_signer,
-        ctx.accounts.pool_config.key(),
-        ctx.accounts.verifier_config.key(),
-    );
-
     let mut verifier = ctx.accounts.verifier_config.load_init()?;
     require!(
         ic_points.len() <= MAX_VERIFIER_IC_POINTS,

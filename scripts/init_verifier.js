@@ -28,21 +28,25 @@ const CIRCUIT_MAP = {
     seed: Buffer.from("withdraw"),
   },
   transfer: {
-    variant: { shieldedTransfer: {} },
+    variant: { transfer: {} },
     seed: Buffer.from("transfer"),
+  },
+  renew: {
+    variant: { renew: {} },
+    seed: Buffer.from("renew"),
   },
 };
 
 function usage() {
   console.log(
-    "Usage: node program/scripts/init_verifier.js <withdraw|transfer> <POOL_CONFIG_PUBKEY> [PATH_TO_VK_JSON]"
+    "Usage: node program/scripts/init_verifier.js <withdraw|transfer|renew> <POOL_CONFIG_PUBKEY> [PATH_TO_VK_JSON]",
   );
 }
 
 function ensureArrayLength(arr, expected, label) {
   if (!Array.isArray(arr) || arr.length !== expected) {
     throw new Error(
-      `${label} must have length ${expected}, got ${arr?.length}`
+      `${label} must have length ${expected}, got ${arr?.length}`,
     );
   }
 }
@@ -81,7 +85,7 @@ async function main() {
   const circuit = CIRCUIT_MAP[circuitArg];
   if (!circuit) {
     console.error(
-      `Invalid circuit "${circuitArg}". Expected withdraw or transfer.`
+      `Invalid circuit "${circuitArg}". Expected withdraw, transfer, or renew.`,
     );
     usage();
     process.exit(1);
@@ -91,7 +95,7 @@ async function main() {
   const defaultVkPath = path.resolve(
     __dirname,
     "../verifier",
-    `${circuitArg}_vk.json`
+    `${circuitArg}_vk.json`,
   );
   const vkPath = vkPathArg
     ? path.resolve(process.cwd(), vkPathArg)
@@ -105,7 +109,7 @@ async function main() {
   const vkGamma = normalizeG2(payload.vkGamma, "vkGamma");
   const vkDelta = normalizeG2(payload.vkDelta, "vkDelta");
   const icPoints = payload.icPoints.map((point, idx) =>
-    normalizeG1(point, `icPoints[${idx}]`)
+    normalizeG1(point, `icPoints[${idx}]`),
   );
 
   // Choose a small init chunk (or zero) to keep the first transaction tiny; append the rest later.
@@ -113,12 +117,12 @@ async function main() {
   const APPEND_CHUNK = Number(process.env.APPEND_IC_CHUNK || 2);
   if (Number.isNaN(INIT_CHUNK) || INIT_CHUNK < 0) {
     throw new Error(
-      `INIT_IC_POINTS must be a non-negative number, got ${process.env.INIT_IC_POINTS}`
+      `INIT_IC_POINTS must be a non-negative number, got ${process.env.INIT_IC_POINTS}`,
     );
   }
   if (Number.isNaN(APPEND_CHUNK) || APPEND_CHUNK <= 0) {
     throw new Error(
-      `APPEND_IC_CHUNK must be a positive number, got ${process.env.APPEND_IC_CHUNK}`
+      `APPEND_IC_CHUNK must be a positive number, got ${process.env.APPEND_IC_CHUNK}`,
     );
   }
   const initIc = icPoints.slice(0, INIT_CHUNK);
@@ -134,13 +138,13 @@ async function main() {
 
   const [verifierConfig] = anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from("verifier"), poolConfigPk.toBuffer(), circuit.seed],
-    program.programId
+    program.programId,
   );
 
   const existing = await provider.connection.getAccountInfo(verifierConfig);
   if (existing) {
     console.log(
-      `Verifier PDA ${verifierConfig.toBase58()} already exists. Delete it first if you need to reinitialize.`
+      `Verifier PDA ${verifierConfig.toBase58()} already exists. Delete it first if you need to reinitialize.`,
     );
     process.exit(0);
   }
@@ -151,7 +155,7 @@ async function main() {
     throw new Error(
       `Payer ${payerPk.toBase58()} has zero lamports on ${
         provider.connection.rpcEndpoint
-      }`
+      }`,
     );
   }
 
@@ -164,7 +168,7 @@ async function main() {
     payerPk.toBase58(),
     "(balance",
     lamports,
-    "lamports)"
+    "lamports)",
   );
 
   const method = program.methods
@@ -174,7 +178,7 @@ async function main() {
       vkBeta,
       vkGamma,
       vkDelta,
-      initIc
+      initIc,
     )
     .accounts({
       verifierConfig,
@@ -228,7 +232,7 @@ function buildProvider() {
 
   if (!fs.existsSync(walletPath)) {
     throw new Error(
-      `Wallet file not found at ${walletPath}. Set ANCHOR_WALLET or create ~/.config/solana/id.json`
+      `Wallet file not found at ${walletPath}. Set ANCHOR_WALLET or create ~/.config/solana/id.json`,
     );
   }
 

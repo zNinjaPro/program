@@ -75,6 +75,9 @@ pub fn handler(
     // Validate pool is not paused
     require!(!pool_config.paused, ShieldedPoolError::PoolPaused);
 
+    // Reject zero-amount deposits (prevents tree pollution / DoS)
+    require!(amount > 0, ShieldedPoolError::InvalidAmount);
+
     // Validate epoch is still active
     let epoch_end_slot = pool_config.epoch_start_slot
         .checked_add(pool_config.epoch_duration_slots)

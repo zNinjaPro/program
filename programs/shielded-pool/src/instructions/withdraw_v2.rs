@@ -130,6 +130,12 @@ pub fn handler(
         ShieldedPoolError::InvalidPublicInputs
     );
 
+    // Validate chain_id matches on-chain constant (prevents cross-chain replay)
+    require!(
+        public_inputs.chain_id == crate::state::CHAIN_ID,
+        ShieldedPoolError::InvalidChainId
+    );
+
     // Verify Groth16 proof
     let proof = Box::new(Groth16Proof::from_bytes(&proof_bytes)?);
     let verifier_account = ctx.accounts.verifier_config.load()?;
@@ -182,6 +188,18 @@ pub fn handler(
         // Update cumulative burn counter
         pool_config.total_burned = pool_config.total_burned.saturating_add(burn_amount);
     }
+
+    // Validate recipient matches the proof's public input
+    require!(
+        ctx.accounts.recipient_token_account.owner == public_inputs.recipient,
+        ShieldedPoolError::InvalidRecipient
+    );
+
+    // Pre-check vault balance for clearer error message
+    require!(
+        ctx.accounts.vault.amount >= public_inputs.amount,
+        ShieldedPoolError::InsufficientVaultBalance
+    );
 
     // Transfer remaining tokens to recipient
     let cpi_accounts = TransferChecked {

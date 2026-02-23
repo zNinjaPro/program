@@ -151,6 +151,12 @@ pub fn handler(
         ShieldedPoolError::InvalidPublicInputs
     );
 
+    // Validate chain_id matches on-chain constant (prevents cross-chain replay)
+    require!(
+        public_inputs.chain_id == crate::state::CHAIN_ID,
+        ShieldedPoolError::InvalidChainId
+    );
+
     // Verify Groth16 proof
     let proof = Box::new(Groth16Proof::from_bytes(&proof_bytes)?);
     let verifier_account = ctx.accounts.verifier_config.load()?;
@@ -182,6 +188,12 @@ pub fn handler(
         
         (idx1, idx2)
     };
+
+    // Guard: both leaves must land in the same chunk (prevents cross-chunk corruption)
+    require!(
+        leaf_index1 / LEAF_CHUNK_SIZE as u64 == leaf_index2 / LEAF_CHUNK_SIZE as u64,
+        ShieldedPoolError::LeafChunkBoundary
+    );
 
     // Store commitments in leaf chunk
     {

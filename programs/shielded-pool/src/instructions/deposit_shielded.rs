@@ -72,11 +72,6 @@ pub fn handler(
     );
 
     // Find the provided chunk account
-    msg!("deposit: chunk_index={}, expected leaf_chunk PDA={}", chunk_index, expected_pda);
-    // Debug: list remaining accounts to aid resolution issues
-    for (i, ai) in ctx.remaining_accounts.iter().enumerate() {
-        msg!("remaining[{}] = {} (writable={}, signer={})", i, ai.key(), ai.is_writable, ai.is_signer);
-    }
     let chunk_account_info = ctx
         .remaining_accounts
         .iter()
@@ -89,11 +84,9 @@ pub fn handler(
     let leaf_chunk = bytemuck::from_bytes_mut::<LeafChunk>(chunk_data);
     
     if leaf_chunk.mint != ctx.accounts.pool_config.mint {
-        msg!("deposit: leaf_chunk.mint mismatch. got={}, expected={}", leaf_chunk.mint, ctx.accounts.pool_config.mint);
         return Err(ShieldedPoolError::InvalidPublicInputs.into());
     }
     if leaf_chunk.chunk_index != chunk_index {
-        msg!("deposit: leaf_chunk.chunk_index mismatch. got={}, expected={}", leaf_chunk.chunk_index, chunk_index);
         return Err(ShieldedPoolError::InvalidPublicInputs.into());
     }
 

@@ -69,7 +69,7 @@ pub fn handler(
     pool_tree.roots = [[0; 32]; LEGACY_ROOT_HISTORY];
     pool_tree.roots_len = 0;
     pool_tree.roots_head = 0;
-    pool_tree.zero_hashes = compute_zero_hashes_legacy(merkle_depth as usize);
+    pool_tree.zero_hashes = compute_zero_hashes_legacy(merkle_depth as usize)?;
 
     Ok(())
 }

@@ -83,7 +83,7 @@ pub fn handler(
         require!(pool_id_field == expected_pool_field, ShieldedPoolError::InvalidPublicInputs);
         require!(chain_id_field == chain_id, ShieldedPoolError::InvalidPublicInputs);
     } else {
-        msg!("⚠️ Legacy public inputs detected: tx_anchor/pool_id/chain_id not supplied");
+        // Legacy public inputs: tx_anchor/pool_id/chain_id not supplied
     }
     
     // Verify proof using BN254 Groth16 verifier (boxed to reduce stack)

@@ -45,7 +45,7 @@ pub fn handler(ctx: Context<FinalizeEpoch>, epoch: u64) -> Result<()> {
     );
 
     // Compute and commit final root
-    let final_root = compute_root_epoch(&tree);
+    let final_root = compute_root_epoch(&tree)?;
     tree.final_root = final_root;
     tree.finalized_slot = clock.slot;
     tree.set_state(EpochState::Finalized);

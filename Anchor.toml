@@ -36,7 +36,7 @@ types = "target/types/"
 # For local testing, enable mock-verifier feature
 # For production/devnet, use: anchor build (no features, uses real Groth16)
 [build.localnet]
-features = ["mock-verifier"]
+features = ["mock-verifier", "legacy-v1"]
 
 [build.devnet]
 features = ["altbn128_syscalls"]

@@ -1,15 +1,12 @@
-/// Alt_bn128 curve operations for Groth16 verification
-/// 
-/// TEMPORARY IMPLEMENTATION: For MVP, we're using placeholder verification
-/// that logs proof data but accepts all structurally valid proofs.
-///
-/// PRODUCTION TODO: Integrate alt_bn128 syscalls via:
-/// 1. Use solana_program::alt_bn128 (when available in SDK version)
-/// 2. OR use groth16-solana library for full Groth16 verification
-/// 3. OR implement direct FFI to sol_alt_bn128_* syscalls
-///
-/// The proof generation pipeline is working (circuits → snarkjs → valid proofs).
-/// This is the final integration point for on-chain verification.
+//! Alt_bn128 curve operations for Groth16 verification
+//!
+//! Uses Solana's native alt_bn128 syscalls (`sol_alt_bn128_g1_add`, `sol_alt_bn128_g1_mul`,
+//! `sol_alt_bn128_pairing`) for BN254 elliptic curve operations. These are gated behind the
+//! `altbn128_syscalls` feature flag and compiled only for the Solana BPF target.
+//!
+//! When neither `altbn128_syscalls` nor `mock-verifier` is enabled, the operations return
+//! errors, ensuring no silent fallback. See `verifier.rs` for the compile_error guard that
+//! prevents `mock-verifier` and `altbn128_syscalls` from being enabled simultaneously.
 
 use anchor_lang::prelude::*;
 
@@ -45,23 +42,18 @@ pub fn alt_bn128_g1_add(input: &[u8; 128]) -> Result<[u8; 64]> {
     {
         let code = unsafe { sol_alt_bn128_g1_add(input.as_ptr(), 128u64, out.as_mut_ptr()) };
         if code == 0 {
-            msg!("alt_bn128_g1_add SUCCESS: out[0..4]={:?}", &out[..4]);
             return Ok(out);
         } else {
-            msg!("alt_bn128_g1_add ERROR code {}", code);
             return Err(ProgramError::InvalidArgument.into());
         }
     }
     #[cfg(all(not(all(target_os = "solana", feature = "altbn128_syscalls")), feature = "mock-verifier"))]
     {
-        // Dev fallback: echo structure for local tests
         out[..32].copy_from_slice(&input[..32]);
-        msg!("alt_bn128_g1_add (fallback) out[0..4]={:?}", &out[..4]);
         Ok(out)
     }
     #[cfg(all(not(all(target_os = "solana", feature = "altbn128_syscalls")), not(feature = "mock-verifier")))]
     {
-        msg!("alt_bn128_g1_add unavailable without altbn128_syscalls or mock-verifier feature");
         Err(ShieldedPoolError::InvalidVerifierConfig.into())
     }
 }
@@ -78,22 +70,18 @@ pub fn alt_bn128_g1_mul(input: &[u8; 96]) -> Result<[u8; 64]> {
     {
         let code = unsafe { sol_alt_bn128_g1_mul(input.as_ptr(), 96u64, out.as_mut_ptr()) };
         if code == 0 {
-            msg!("alt_bn128_g1_mul SUCCESS: out[0..4]={:?}", &out[..4]);
             return Ok(out);
         } else {
-            msg!("alt_bn128_g1_mul ERROR code {}", code);
             return Err(ProgramError::InvalidArgument.into());
         }
     }
     #[cfg(all(not(all(target_os = "solana", feature = "altbn128_syscalls")), feature = "mock-verifier"))]
     {
         out[..32].copy_from_slice(&input[..32]);
-        msg!("alt_bn128_g1_mul (fallback) out[0..4]={:?}", &out[..4]);
         Ok(out)
     }
     #[cfg(all(not(all(target_os = "solana", feature = "altbn128_syscalls")), not(feature = "mock-verifier")))]
     {
-        msg!("alt_bn128_g1_mul unavailable without altbn128_syscalls or mock-verifier feature");
         Err(ShieldedPoolError::InvalidVerifierConfig.into())
     }
 }
@@ -106,36 +94,29 @@ pub fn alt_bn128_g1_mul(input: &[u8; 96]) -> Result<[u8; 64]> {
 /// For Groth16, we need 4 pairings = 768 bytes input
 /// Cost: ~36,000 compute units per pairing (~144k total for 4 pairings)
 pub fn verify_alt_bn128_pairing(input: &[u8]) -> Result<bool> {
-    // Validate input length (must be multiple of 192)
-    if input.len() % 192 != 0 {
-        msg!("Invalid pairing input length: {}", input.len());
+    if !input.len().is_multiple_of(192) {
         return Err(error!(ErrorCode::AccountDidNotSerialize));
     }
 
     #[cfg(all(target_os = "solana", feature = "altbn128_syscalls"))]
     {
-        let mut out = [0u8; 1]; // syscall writes 1 byte: 1 = true, 0 = false
+        let mut out = [0u8; 1];
         let code = unsafe { sol_alt_bn128_pairing(input.as_ptr(), input.len() as u64, out.as_mut_ptr()) };
         if code == 0 {
             let ok = out[0] == 1u8;
-            msg!("alt_bn128_pairing SUCCESS: {}", ok);
             return Ok(ok);
         } else {
-            msg!("alt_bn128_pairing ERROR code {}", code);
             return Err(ProgramError::InvalidArgument.into());
         }
     }
     
     #[cfg(all(not(all(target_os = "solana", feature = "altbn128_syscalls")), feature = "mock-verifier"))]
     {
-        let num_pairings = input.len() / 192;
-        msg!("⚠️ alt_bn128_pairing FALLBACK: treating {} pairings as valid", num_pairings);
         Ok(true)
     }
 
     #[cfg(all(not(all(target_os = "solana", feature = "altbn128_syscalls")), not(feature = "mock-verifier")))]
     {
-        msg!("alt_bn128_pairing unavailable without altbn128_syscalls or mock-verifier feature");
         Err(ShieldedPoolError::InvalidVerifierConfig.into())
     }
 }

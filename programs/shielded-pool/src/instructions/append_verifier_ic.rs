@@ -17,8 +17,8 @@ pub struct AppendVerifierIc<'info> {
     pub verifier_config: AccountLoader<'info, VerifierConfig>,
 
     #[account(
-        seeds = [b"config", pool_config.mint.as_ref()],
-        bump = pool_config.program_bump,
+        seeds = [b"pool_config", pool_config.mint.as_ref()],
+        bump = pool_config.config_bump,
     )]
     pub pool_config: Account<'info, PoolConfig>,
 

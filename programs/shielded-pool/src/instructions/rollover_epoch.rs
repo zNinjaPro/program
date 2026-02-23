@@ -26,7 +26,7 @@ pub struct RolloverEpoch<'info> {
         init,
         payer = payer,
         space = 8 + EpochTree::LEN,
-        seeds = [b"epoch_tree", pool_config.key().as_ref(), &(pool_config.current_epoch + 1).to_le_bytes()],
+        seeds = [b"epoch_tree", pool_config.key().as_ref(), &pool_config.current_epoch.checked_add(1).expect("epoch overflow").to_le_bytes()],
         bump
     )]
     pub new_epoch_tree: AccountLoader<'info, EpochTree>,
@@ -66,7 +66,9 @@ pub fn handler(ctx: Context<RolloverEpoch>) -> Result<()> {
     }
 
     let old_epoch = pool_config.current_epoch;
-    let new_epoch = old_epoch + 1;
+    let new_epoch = old_epoch
+        .checked_add(1)
+        .ok_or(ShieldedPoolError::MathOverflow)?;
 
     // Update pool config
     pool_config.current_epoch = new_epoch;
@@ -89,7 +91,7 @@ pub fn handler(ctx: Context<RolloverEpoch>) -> Result<()> {
         new_tree.roots_len = 0;
         new_tree.roots_head = 0;
         new_tree.final_root = [0; 32];
-        new_tree.zero_hashes = compute_zero_hashes(MERKLE_DEPTH);
+        new_tree.zero_hashes = compute_zero_hashes(MERKLE_DEPTH)?;
     }
 
     emit!(EpochRolloverEvent {

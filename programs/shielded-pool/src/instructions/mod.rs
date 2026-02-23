@@ -1,23 +1,37 @@
 // ============================================================================
-// Legacy Instructions (v1)
+// Legacy Instructions (v1) — gated behind `legacy-v1` feature
 // ============================================================================
+#[cfg(feature = "legacy-v1")]
 pub mod initialize_pool;
+#[cfg(feature = "legacy-v1")]
 pub mod initialize_nullifier_chunk;
+#[cfg(feature = "legacy-v1")]
 pub mod initialize_leaf_chunk;
-pub mod initialize_verifier;
-pub mod append_verifier_ic;
+#[cfg(feature = "legacy-v1")]
 pub mod deposit_shielded;
+#[cfg(feature = "legacy-v1")]
 pub mod shielded_transfer;
+#[cfg(feature = "legacy-v1")]
 pub mod withdraw_shielded;
 
+#[cfg(feature = "legacy-v1")]
 pub use initialize_pool::*;
+#[cfg(feature = "legacy-v1")]
 pub use initialize_nullifier_chunk::*;
+#[cfg(feature = "legacy-v1")]
 pub use initialize_leaf_chunk::*;
+#[cfg(feature = "legacy-v1")]
+pub use deposit_shielded::*;
+#[cfg(feature = "legacy-v1")]
+pub use shielded_transfer::*;
+#[cfg(feature = "legacy-v1")]
+pub use withdraw_shielded::*;
+
+// Verifier setup instructions — shared between V1 and V2
+pub mod initialize_verifier;
+pub mod append_verifier_ic;
 pub use initialize_verifier::*;
 pub use append_verifier_ic::*;
-pub use deposit_shielded::*;
-pub use shielded_transfer::*;
-pub use withdraw_shielded::*;
 
 // ============================================================================
 // Epoch-Based Instructions (v2)

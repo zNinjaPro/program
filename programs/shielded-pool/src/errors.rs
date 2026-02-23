@@ -63,6 +63,9 @@ pub enum ShieldedPoolError {
     #[msg("Leaf chunk is full")]
     LeafChunkFull,
 
+    #[msg("Poseidon hash computation failed")]
+    PoseidonHashError,
+
     // ========== Nullifier Errors ==========
     #[msg("Nullifier already exists (double-spend attempt)")]
     NullifierAlreadyExists,
@@ -83,4 +86,21 @@ pub enum ShieldedPoolError {
 
     #[msg("Burn calculation overflow")]
     BurnOverflow,
+
+    // ========== Security Hardening (Task 8) ==========
+    #[msg("Chain ID mismatch — possible cross-chain replay")]
+    InvalidChainId,
+
+    #[msg("Recipient does not match proof public input")]
+    InvalidRecipient,
+
+    #[msg("Transfer outputs span two leaf chunks — retry when aligned")]
+    LeafChunkBoundary,
+
+    #[msg("Account is not a valid NullifierMarker")]
+    InvalidNullifierMarker,
+
+    // ========== Task 9 — MEDIUM Security Hardening ==========
+    #[msg("Vault has insufficient balance for withdrawal")]
+    InsufficientVaultBalance,
 }

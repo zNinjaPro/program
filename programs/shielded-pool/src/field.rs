@@ -31,7 +31,9 @@ fn be_sub(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32] {
     out
 }
 
-/// Reduce arbitrary 32-byte big-endian value into the BN254 scalar field.
+/// Reduces a 32-byte big-endian value into the BN254 scalar field.
+/// For 256-bit inputs, this requires at most ~4 subtractions of the
+/// BN254 modulus (~2^254), which is acceptable for on-chain compute.
 pub fn reduce_bytes_to_field(bytes: &[u8; 32]) -> [u8; 32] {
     let mut value = *bytes;
     while be_cmp(&value, &BN254_MODULUS) != Ordering::Less {

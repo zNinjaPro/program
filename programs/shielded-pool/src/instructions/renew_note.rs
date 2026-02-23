@@ -141,6 +141,12 @@ pub fn handler(
         ShieldedPoolError::InvalidPublicInputs
     );
 
+    // Validate chain_id matches on-chain constant (prevents cross-chain replay)
+    require!(
+        public_inputs.chain_id == crate::state::CHAIN_ID,
+        ShieldedPoolError::InvalidChainId
+    );
+
     // Verify Groth16 proof
     let proof = Box::new(Groth16Proof::from_bytes(&proof_bytes)?);
     let verifier_account = ctx.accounts.verifier_config.load()?;
